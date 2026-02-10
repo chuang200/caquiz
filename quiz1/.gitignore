@@ -1,0 +1,17 @@
+
+# Problem A
+test
+vector.o
+test.o
+# Problem B
+test
+uf8.o
+test.o
+ProblemB/test
+# Problem C
+test
+bf16.o
+test.o
+ProblemC/test
+.DS_Store
+*.o
