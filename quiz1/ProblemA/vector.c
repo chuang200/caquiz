@@ -20,14 +20,14 @@ int32_t vector_push(vector_t *v, void *ptr)
     // Execute when v->size == 0
     if (!v->size) {
         v->size = VECTOR_MIN_SIZE;
-        v->data = /* A01 */;
+        v->data = /* A01 */(int**) calloc (VECTOR_MIN_SIZE, sizeof(void *));
         // What does this line do?
         // Allocates memory for the first level of data
     }
 
     /* Reuse free slot if available */
     if (v->free_slot && v->free_slot < v->count) {
-        size_t idx = /* A02 */;
+        size_t idx = /* A02 */v->free_slot;
         v->data[idx] = ptr;
         // Where do I store ptr within data?
         // Store into the available space in data
@@ -40,7 +40,7 @@ int32_t vector_push(vector_t *v, void *ptr)
     if (v->count == v->size) {
         v->size *= 2;
         // If size doubles, data space must also double
-        v->data = /* A03 */;
+        v->data = /* A03 */realloc(v->data, size * sizeof(void *));
         memset(v->data + v->count, 0, (v->size - v->count) * sizeof(void *));
     }
 
@@ -54,7 +54,7 @@ void *vector_pop(vector_t *v)
 {
     if (!v->count)
         return NULL;
-    void *last = /* A04 */;
+    void *last = /* A04 */&v->data[v->count];
     v->data[v->count] = NULL;
     return last;
 }
@@ -96,10 +96,10 @@ void *vector_for_each(vector_t *v, vector_foreach_callback_t cb, void *data)
         return NULL;
 
     for (size_t i = 0; i < v->count; i++) {
-        if (! /* A05 */ )
+        if (! /* A05 */ v->data[i])
             continue;
 
-        void *ret = /* A06 */;
+        void *ret = /* A06 */cb(v, data);
         if (ret)
             return ret;
     }
@@ -111,7 +111,7 @@ void vector_delete_all(vector_t *v, vector_delete_callback_t dc)
 {
     for (void *p; (/* A07 */);) {
         if (dc)
-            /* A08 */;
+            /* A08 */dc(v->data[0]);
     }
 }
 
