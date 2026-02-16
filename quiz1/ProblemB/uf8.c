@@ -19,7 +19,7 @@ static inline unsigned clz(uint32_t x)
 uint32_t uf8_decode(uf8 fl)
 {
     uint32_t mantissa = fl & 0x0f;
-    uint8_t exponent = fl >> /* B02 */;
+    uint8_t exponent = fl >> /* B02 */ 4;
     /* B01: Calculate shift for the offset.
      * The offset formula is (2^e - 1) * 16.
      * 0x7FFF is 0111 1111 1111 1111.
@@ -27,7 +27,7 @@ uint32_t uf8_decode(uf8 fl)
      * 15 - exponent shift gives the mask.
      */
     uint32_t offset = (0x7FFF >> (/* B01 */)) << 4;
-    return (/* B03 */) + offset;
+    return (/* B03 */ mantissa) + offset;
 }
 
 /* Encode uint32_t to uf8 */
@@ -57,21 +57,21 @@ uf8 uf8_encode(uint32_t value)
 
         /* Adjust if estimate was off */
         while (exponent > 0 && value < overflow) {
-            overflow = (/* B04 */) >> 1;
+            overflow = (/* B04 */ overflow) >> 1;
             exponent--;
         }
     }
 
     /* Find exact exponent */
     while (exponent < 15) {
-        uint32_t next_overflow = (/* B05 */) + 16;
+        uint32_t next_overflow = (/* B05 */ overflow) + 16;
         if (value < next_overflow)
             break;
         overflow = next_overflow;
         exponent++;
     }
 
-    uint8_t mantissa = /* B06 */;
+    uint8_t mantissa = /* B06 */ (value - overflow) >> exponent;
 
-    return (/* B07 */) | mantissa;
+    return (/* B07 */ exponent) | mantissa;
 }
