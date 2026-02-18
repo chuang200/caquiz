@@ -35,8 +35,8 @@ bf16_t f32_to_bf16(float val)
      * Exponent 0xFF (255) in float32 is bits 23-30.
      * f32bits >> 23 shifts the exponent to the lowest byte (and sign bit above it).
      */
-    if (((/* C01 */) & 0xFF) == 0xFF)
-        return (bf16_t) {.bits = (/* C02 */) & 0xFFFF};
+    if (((/* C01 */ f32bits + 0x7F) & 0xFF) == 0xFF)
+        return (bf16_t) {.bits = (/* C02 */ f32bits >> 16) & 0xFFFF};
 
     /* Rounding: Add 1 to the LSB of the part we keep if the MSB of the part we drop is 1.
      * C03: Get the LSB of the new bf16 mantissa (bit 16 of float).
@@ -50,14 +50,14 @@ bf16_t f32_to_bf16(float val)
      * dropping:              MMMMMMMMMMMMMMMM
      * If we add 0x8000 (bit 15) to f32bits, it rounds to nearest.
      */
-    f32bits += ((/* C03 */) & 1) + /* C04 */;
+    f32bits += ((/* C03 */ f32bits >> 15) & 1) + /* C04 */ 0x7FFF;
 
-    return (bf16_t) {.bits = /* C05 */};
+    return (bf16_t) {.bits = /* C05 */ f32bits >> 16};
 }
 
 float bf16_to_f32(bf16_t val)
 {
-    uint32_t f32bits = ((uint32_t) val.bits) << /* C06 */;
+    uint32_t f32bits = ((uint32_t) val.bits) << /* C06 */ 16;
     float result;
     memcpy(&result, &f32bits, sizeof(float));
     return result;
@@ -113,10 +113,10 @@ bf16_t bf16_add(bf16_t a, bf16_t b)
         result_sign = sign_a;
         result_mant = (uint32_t) mant_a + mant_b;
 
-        if (result_mant & /* C11 */) {
+        if (result_mant & /* C11 */ 0x08) {
             result_mant >>= 1;
             if (++result_exp >= 0xFF)
-                return (bf16_t) {.bits = (result_sign << 15) | /* C07 */};
+                return (bf16_t) {.bits = (result_sign << 15) | /* C07 */ 0xFF};
         }
     } else {
         if (mant_a >= mant_b) {
@@ -130,7 +130,7 @@ bf16_t bf16_add(bf16_t a, bf16_t b)
         if (!result_mant)
             return BF16_ZERO();
 
-        while (!(result_mant & /* C08 */)) {
+        while (!(result_mant & /* C08 */ 0x08)) {
             result_mant <<= 1;
             if (--result_exp <= 0)
                 return BF16_ZERO();
@@ -139,13 +139,13 @@ bf16_t bf16_add(bf16_t a, bf16_t b)
 
     return (bf16_t) {
         .bits = (result_sign << 15) | ((result_exp & 0xFF) << 7) |
-                (result_mant & /* C09 */),
+                (result_mant & /* C09 */0x07),
     };
 }
 
 bf16_t bf16_sub(bf16_t a, bf16_t b)
 {
-    b.bits ^= /* C10 */;
+    b.bits ^= /* C10 */ 0x8000;
     return bf16_add(a, b);
 }
 
@@ -340,8 +340,8 @@ bf16_t bf16_sqrt(bf16_t a)
     /* Binary search for integer square root */
     /* We want result where result^2 = m * 128 (since 128 represents 1.0) */
 
-    uint32_t low = /* C12 */;         /* Min sqrt (roughly sqrt(128)) */
-    uint32_t high = /* C13 */;        /* Max sqrt (roughly sqrt(512)) */
+    uint32_t low = /* C12 */ 11;         /* Min sqrt (roughly sqrt(128)) */
+    uint32_t high = /* C13 */ 23;        /* Max sqrt (roughly sqrt(512)) */
     uint32_t result = 128;            /* Default */
 
     /* Binary search for square root of m */
@@ -362,7 +362,7 @@ bf16_t bf16_sqrt(bf16_t a)
     /* Since m is scaled where 128=1.0, result should also be scaled same way */
 
     /* Normalize to ensure result is in [128, 256) */
-    if (result >= /* C14 */) {
+    if (result >= /* C14 */ 0x01FF) {
         result >>= 1;
         new_exp++;
     } else if (result < 128) {
@@ -372,17 +372,17 @@ bf16_t bf16_sqrt(bf16_t a)
         }
     }
 
-    uint16_t new_mant = result & /* C15 */;
+    uint16_t new_mant = result & /* C15 */ 0x7F;
 
     /* Check for overflow/underflow */
     /* C16: Exponent overflow threshold. */
     if (new_exp >= /* C16 */)
-        return (bf16_t) {.bits = /* C17 */};  /* +Inf */
+        return (bf16_t) {.bits = /* C17 */ 0x7F80};  /* +Inf */
     if (new_exp <= 0)
         return BF16_ZERO();
 
     /* C18: Mask for exponent.
      * C19: Shift for exponent.
      */
-    return (bf16_t) {.bits = ((new_exp & /* C18 */) << /* C19 */) | new_mant};
+    return (bf16_t) {.bits = ((new_exp & /* C18 */ 0xFF) << /* C19 */ 7) | new_mant};
 }
